@@ -27,6 +27,8 @@ class ScoreParams:
             return self.mismatch
         else:
             return self.match
+    #In case the two words are represented using a different number of tokens, the maps can be duplicated/averaged as necessary using an alignment function as described in the next paragraph.
+    #an alignment function A that receives a token index from target prompt P∗ and outputs the corresponding token index in P or None if there isn’t a match.
         
     
 def get_matrix(size_x, size_y, gap):
@@ -146,7 +148,7 @@ def get_word_inds(text: str, word_place: int, tokenizer):
             if cur_len >= len(split_text[ptr]):
                 ptr += 1
                 cur_len = 0
-    return np.array(out)
+    return np.array(out) # gets the word indicies from the prompts
 
 
 def get_replacement_mapper_(x: str, y: str, tokenizer, max_len=77):
@@ -155,7 +157,7 @@ def get_replacement_mapper_(x: str, y: str, tokenizer, max_len=77):
     if len(words_x) != len(words_y):
         raise ValueError(f"attention replacement edit can only be applied on prompts with the same length"
                          f" but prompt A has {len(words_x)} words and prompt B has {len(words_y)} words.")
-    inds_replace = [i for i in range(len(words_y)) if words_y[i] != words_x[i]]
+    inds_replace = [i for i in range(len(words_y)) if words_y[i] != words_x[i]] #getting the indicies where we need to make the changes
     inds_source = [get_word_inds(x, i, tokenizer) for i in inds_replace]
     inds_target = [get_word_inds(y, i, tokenizer) for i in inds_replace]
     mapper = np.zeros((max_len, max_len))
@@ -182,7 +184,7 @@ def get_replacement_mapper_(x: str, y: str, tokenizer, max_len=77):
             i += 1
             j += 1
 
-    return torch.from_numpy(mapper).float()
+    return torch.from_numpy(mapper).float() #attention reweighting to focus attention on particular words
 
 
 

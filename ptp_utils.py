@@ -31,7 +31,7 @@ def text_under_image(image: np.ndarray, text: str, text_color: Tuple[int, int, i
     textsize = cv2.getTextSize(text, font, 1, 2)[0]
     text_x, text_y = (w - textsize[0]) // 2, h + offset - textsize[1] // 2
     cv2.putText(img, text, (text_x, text_y ), font, 1, text_color, 2)
-    return img
+    return img #This function is used to create the watermark on the img to know it has been created using stable diffusion
 
 
 def view_images(images, num_rows=1, offset_ratio=0.02):
@@ -43,7 +43,7 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
         images = [images]
         num_empty = 0
 
-    empty_images = np.ones(images[0].shape, dtype=np.uint8) * 255
+    empty_images = np.ones(images[0].shape, dtype=np.uint8) * 255 #You need to scale by the number of bits you have in a pixel
     images = [image.astype(np.uint8) for image in images] + [empty_images] * num_empty
     num_items = len(images)
 
@@ -59,13 +59,13 @@ def view_images(images, num_rows=1, offset_ratio=0.02):
 
     pil_img = Image.fromarray(image_)
     display(pil_img)
-
+    #PIL is the Python Imaging Library which provides the python interpreter with image editing capabilities.
 
     
 def diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource=False):
     if low_resource:
-        noise_pred_uncond = model.unet(latents, t, encoder_hidden_states=context[0])["sample"]
-        noise_prediction_text = model.unet(latents, t, encoder_hidden_states=context[1])["sample"]
+        noise_pred_uncond = model.unet(latents, t, encoder_hidden_states=context[0])["sample"] # each diffusion step t consists of predicting the noise from a noisy 
+        noise_prediction_text = model.unet(latents, t, encoder_hidden_states=context[1])["sample"] # image z and text embedding phi
     else:
         latents_input = torch.cat([latents] * 2)
         noise_pred = model.unet(latents_input, t, encoder_hidden_states=context)["sample"]
@@ -74,13 +74,15 @@ def diffusion_step(model, controller, latents, context, t, guidance_scale, low_r
     latents = model.scheduler.step(noise_pred, t, latents)["prev_sample"]
     latents = controller.step_callback(latents)
     return latents
+    #the embeddings of the visual and textual features are fused using Cross-attention layers that produce spatial attention maps for each textual token.
 
 
 def latent2image(vae, latents):
     latents = 1 / 0.18215 * latents
     image = vae.decode(latents)['sample']
-    image = (image / 2 + 0.5).clamp(0, 1)
-    image = image.cpu().permute(0, 2, 3, 1).numpy()
+    image = (image / 2 + 0.5).clamp(0, 1) #PyTorch torch.clamp() method clamps all the input elements into the range [ min, max ] and return a resulting tensor
+    image = image.cpu().permute(0, 2, 3, 1).numpy() #PyTorch torch.permute() rearranges the original tensor according to the desired ordering and returns a new multidimensional rotated tensor. The size of the returned tensor remains the same as that of the original.
+                                                    #Returns a copy of this object in CPU memory.
     image = (image * 255).astype(np.uint8)
     return image
 
@@ -164,7 +166,7 @@ def text2image_ldm_stable(
     # set timesteps
     extra_set_kwargs = {"offset": 1}
     model.scheduler.set_timesteps(num_inference_steps, **extra_set_kwargs)
-    for t in tqdm(model.scheduler.timesteps):
+    for t in tqdm(model.scheduler.timesteps): # tqdm shows a smart progress meter
         latents = diffusion_step(model, controller, latents, context, t, guidance_scale, low_resource)
     
     image = latent2image(model.vae, latents)
@@ -181,8 +183,8 @@ def register_attention_control(model, controller):
             q = self.to_q(x)
             is_cross = context is not None
             context = context if is_cross else x
-            k = self.to_k(context)
-            v = self.to_v(context)
+            k = self.to_k(context) #noisy image φ(zt) are projected to a query matrix Q
+            v = self.to_v(context) #textual embedding is projected to a key matrix K = lk(ψ(P)) and a value matrix V = lv(ψ(P))
             q = self.reshape_heads_to_batch_dim(q)
             k = self.reshape_heads_to_batch_dim(k)
             v = self.reshape_heads_to_batch_dim(v)
